@@ -688,6 +688,20 @@ function App() {
                       <div><span>Moves</span><strong>{moves}</strong></div>
                       <div><span>Best</span><strong>{records[difficulty] ? formatTime(records[difficulty].time) : '--:--.-'}</strong></div>
                     </div>
+                    <button
+                      type="button"
+                      className="new-capture-button"
+                      onClick={() => {
+                        puzzleDragRef.current = null;
+                        setPuzzleDrag(null);
+                        setPuzzleCursor(null);
+                        setCapturedImage(null);
+                        setPuzzleBoard([]);
+                        resetSelection('CAMERA_READY');
+                      }}
+                    >
+                      Retake photo
+                    </button>
                     <div
                       className="puzzle-board"
                       style={puzzleBoardStyle}
@@ -708,36 +722,20 @@ function App() {
                       )}
                     </div>
                     <div className="puzzle-controls">
-                      <p>{appState === 'PUZZLE_COMPLETED' ? 'Puzzle solved!' : 'Tap an adjacent tile or pinch, move, and release.'}</p>
-                      <div className="difficulty-picker" aria-label="Puzzle difficulty">
-                        {(Object.keys(DIFFICULTIES) as Difficulty[]).map((level) => (
-                          <button
-                            key={level}
-                            type="button"
-                            className={difficulty === level ? 'difficulty active' : 'difficulty'}
-                            onClick={() => startPuzzle(level)}
-                            aria-pressed={difficulty === level}
-                          >
-                            {DIFFICULTIES[level].label}
-                          </button>
-                        ))}
-                      </div>
+                      <label className="difficulty-select">
+                        <span>Difficulty</span>
+                        <select
+                          value={difficulty}
+                          onChange={(event) => startPuzzle(event.target.value as Difficulty)}
+                          aria-label="Puzzle difficulty"
+                        >
+                          {(Object.keys(DIFFICULTIES) as Difficulty[]).map((level) => (
+                            <option key={level} value={level}>{DIFFICULTIES[level].label}</option>
+                          ))}
+                        </select>
+                      </label>
                       <button type="button" className="secondary-button" onClick={() => startPuzzle()}>
                         Restart
-                      </button>
-                      <button
-                        type="button"
-                        className="primary-button"
-                        onClick={() => {
-                          puzzleDragRef.current = null;
-                          setPuzzleDrag(null);
-                          setPuzzleCursor(null);
-                          setCapturedImage(null);
-                          setPuzzleBoard([]);
-                          resetSelection('CAMERA_READY');
-                        }}
-                      >
-                        New capture
                       </button>
                     </div>
                     {appState === 'PUZZLE_COMPLETED' && (

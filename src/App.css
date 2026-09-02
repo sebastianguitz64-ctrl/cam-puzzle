@@ -225,13 +225,14 @@
 
 .puzzle-controls {
   position: absolute;
-  inset: auto 16px 16px;
+  z-index: 3;
+  inset: auto 16px 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px 10px 16px;
-  border-radius: 14px;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 12px;
   background: rgba(5, 12, 24, 0.88);
   border: 1px solid rgba(164, 178, 255, 0.3);
   color: #eff6ff;
@@ -239,24 +240,46 @@
   pointer-events: auto;
 }
 
-.puzzle-controls p {
-  margin: 0;
+.new-capture-button {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 14px;
+  border: 1px solid rgba(166, 192, 255, 0.4);
+  border-radius: 9px;
+  padding: 7px 9px;
+  background: rgba(4, 12, 25, 0.77);
+  color: #f1f7ff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.new-capture-button:hover {
+  background: rgba(80, 170, 233, 0.28);
 }
 
 .camera-switch {
   display: none;
 }
 
-.difficulty-picker {
+.difficulty-select {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 5px;
+  color: #b8cbe8;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.difficulty,
+.difficulty-select select,
 .secondary-button {
   border: 1px solid rgba(166, 192, 255, 0.34);
   border-radius: 8px;
-  padding: 7px 9px;
+  min-height: 30px;
+  padding: 5px 8px;
   background: rgba(103, 128, 184, 0.16);
   color: #e9f3ff;
   font-size: 0.7rem;
@@ -264,23 +287,18 @@
   cursor: pointer;
 }
 
-.difficulty.active {
-  border-color: #8cd4ff;
-  background: rgba(80, 170, 233, 0.28);
-  color: #fff;
-}
-
-.difficulty:focus-visible,
+.difficulty-select select:focus-visible,
 .secondary-button:focus-visible,
 .camera-switch:focus-visible,
 .primary-button:focus-visible,
+.new-capture-button:focus-visible,
 .tile:focus-visible {
   outline: 3px solid #ffcf70;
   outline-offset: 3px;
 }
 
 .secondary-button:hover,
-.difficulty:hover {
+.difficulty-select select:hover {
   background: rgba(117, 158, 230, 0.32);
 }
 
@@ -456,7 +474,6 @@
 
   .puzzle-controls {
     align-items: flex-start;
-    flex-direction: column;
     inset: auto 10px 10px;
     max-width: calc(100% - 20px);
     font-size: 0.72rem;
@@ -476,17 +493,13 @@
     font-size: 0.7rem;
   }
 
-  .difficulty,
   .secondary-button {
     min-height: 32px;
     padding: 6px 7px;
   }
 
-  .difficulty-picker {
-    width: 100%;
-  }
-
-  .difficulty {
-    flex: 1;
+  .new-capture-button {
+    top: 8px;
+    right: 8px;
   }
 }
