@@ -8,11 +8,11 @@ export function isSolved(board: number[]): boolean {
   return board.every((value, index) => value === solved[index]);
 }
 
-export function isAdjacent(index: number, emptyIndex: number): boolean {
-  const currentRow = Math.floor(index / GRID_SIZE);
-  const currentColumn = index % GRID_SIZE;
-  const emptyRow = Math.floor(emptyIndex / GRID_SIZE);
-  const emptyColumn = emptyIndex % GRID_SIZE;
+export function isAdjacent(index: number, emptyIndex: number, size = GRID_SIZE): boolean {
+  const currentRow = Math.floor(index / size);
+  const currentColumn = index % size;
+  const emptyRow = Math.floor(emptyIndex / size);
+  const emptyColumn = emptyIndex % size;
 
   return Math.abs(currentRow - emptyRow) + Math.abs(currentColumn - emptyColumn) === 1;
 }

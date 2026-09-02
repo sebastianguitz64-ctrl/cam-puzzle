@@ -18,6 +18,7 @@
   font-size: clamp(2rem, 3vw, 3rem);
   letter-spacing: -0.06em;
   color: #f4f7ff;
+  font-weight: 850;
 }
 
 .eyebrow {
@@ -184,6 +185,38 @@
   background: rgba(3, 10, 21, 0.42);
 }
 
+.game-hud {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.game-hud div {
+  display: grid;
+  gap: 1px;
+  min-width: 76px;
+  padding: 7px 9px;
+  border: 1px solid rgba(175, 203, 255, 0.27);
+  border-radius: 10px;
+  background: rgba(4, 12, 25, 0.77);
+}
+
+.game-hud span {
+  color: #9bb7de;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.game-hud strong {
+  color: #f1f7ff;
+  font-size: 0.82rem;
+}
+
 .puzzle-layer .puzzle-board {
   position: absolute;
   margin: 0;
@@ -202,7 +235,7 @@
   background: rgba(5, 12, 24, 0.88);
   border: 1px solid rgba(164, 178, 255, 0.3);
   color: #eff6ff;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   pointer-events: auto;
 }
 
@@ -212,6 +245,99 @@
 
 .camera-switch {
   display: none;
+}
+
+.difficulty-picker {
+  display: flex;
+  gap: 4px;
+}
+
+.difficulty,
+.secondary-button {
+  border: 1px solid rgba(166, 192, 255, 0.34);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: rgba(103, 128, 184, 0.16);
+  color: #e9f3ff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.difficulty.active {
+  border-color: #8cd4ff;
+  background: rgba(80, 170, 233, 0.28);
+  color: #fff;
+}
+
+.difficulty:focus-visible,
+.secondary-button:focus-visible,
+.camera-switch:focus-visible,
+.primary-button:focus-visible,
+.tile:focus-visible {
+  outline: 3px solid #ffcf70;
+  outline-offset: 3px;
+}
+
+.secondary-button:hover,
+.difficulty:hover {
+  background: rgba(117, 158, 230, 0.32);
+}
+
+.victory-modal {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 50%;
+  width: min(310px, calc(100% - 32px));
+  padding: 24px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  border: 1px solid rgba(173, 218, 255, 0.52);
+  border-radius: 22px;
+  background: rgba(8, 21, 39, 0.96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.58);
+  animation: victory-pop 260ms ease-out;
+  pointer-events: auto;
+}
+
+.victory-modal h2 {
+  margin: 0;
+  color: #f4f8ff;
+  font-size: 1.5rem;
+}
+
+.victory-icon {
+  margin: 0 0 6px;
+  color: #ffcf70;
+  font-size: 2rem;
+}
+
+.victory-results {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin: 20px 0;
+}
+
+.victory-results span {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.victory-results small {
+  display: block;
+  margin-top: 2px;
+  color: #a8bbd9;
+  font-size: 0.67rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+@keyframes victory-pop {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(0.92); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 .tile {
@@ -334,5 +460,33 @@
     inset: auto 10px 10px;
     max-width: calc(100% - 20px);
     font-size: 0.72rem;
+  }
+
+  .game-hud {
+    top: 8px;
+    left: 8px;
+  }
+
+  .game-hud div {
+    min-width: 57px;
+    padding: 5px 6px;
+  }
+
+  .game-hud strong {
+    font-size: 0.7rem;
+  }
+
+  .difficulty,
+  .secondary-button {
+    min-height: 32px;
+    padding: 6px 7px;
+  }
+
+  .difficulty-picker {
+    width: 100%;
+  }
+
+  .difficulty {
+    flex: 1;
   }
 }

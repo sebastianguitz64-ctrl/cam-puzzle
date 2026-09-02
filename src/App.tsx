@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 import {
@@ -10,7 +10,7 @@ import {
   type Point,
   type Region,
 } from './lib/geometry';
-import { GRID_SIZE, createShuffledBoard, isAdjacent, isSolved } from './lib/puzzle';
+import { createShuffledBoard, isAdjacent, isSolved } from './lib/puzzle';
 import type { AppState } from './types';
 import './App.css';
 
@@ -23,6 +23,16 @@ const COUNTDOWN_SECONDS = 2;
 const MEDIAPIPE_VERSION = '1.0.1';
 const PUZZLE_PINCH_THRESHOLD = 0.15;
 const PUZZLE_PICKUP_HOLD_MS = 100;
+const RECORDS_KEY = 'cam-puzzle-records';
+
+const DIFFICULTIES = {
+  easy: { label: 'Easy', size: 3 },
+  medium: { label: 'Medium', size: 4 },
+  hard: { label: 'Hard', size: 5 },
+} as const;
+
+type Difficulty = keyof typeof DIFFICULTIES;
+type RecordResult = { time: number; moves: number };
 
 type PuzzleDrag = {
   tileValue: number;
@@ -39,6 +49,11 @@ function App() {
   const puzzleDragRef = useRef<PuzzleDrag>(null);
   const puzzleBoardRef = useRef<number[]>([]);
   const puzzlePinchStartedAtRef = useRef<number | null>(null);
+  const puzzleStartedAtRef = useRef<number | null>(null);
+  const movesRef = useRef(0);
+  const recordsRef = useRef<Partial<Record<Difficulty, RecordResult>>>({});
+  const difficultyRef = useRef<Difficulty>('easy');
+  const elapsedTenthsRef = useRef(0);
   const compactLayoutRef = useRef(false);
   const [appState, setAppState] = useState<AppState>('IDLE');
   const [videoSize, setVideoSize] = useState({ width: 1280, height: 720 });
@@ -51,6 +66,18 @@ function App() {
   const [puzzleCursor, setPuzzleCursor] = useState<Point | null>(null);
   const [puzzleDrag, setPuzzleDrag] = useState<PuzzleDrag>(null);
   const [puzzleTargetIndex, setPuzzleTargetIndex] = useState<number | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
+  const [moves, setMoves] = useState(0);
+  const [elapsedTenths, setElapsedTenths] = useState(0);
+  const [records, setRecords] = useState<Partial<Record<Difficulty, RecordResult>>>(() => {
+    try {
+      const stored = window.localStorage.getItem(RECORDS_KEY);
+      return stored ? (JSON.parse(stored) as Partial<Record<Difficulty, RecordResult>>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [isNewRecord, setIsNewRecord] = useState(false);
   const [startupAttempt, setStartupAttempt] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isCompactLayout, setIsCompactLayout] = useState(() => window.innerWidth <= 680);
@@ -58,6 +85,22 @@ function App() {
   useEffect(() => {
     puzzleBoardRef.current = puzzleBoard;
   }, [puzzleBoard]);
+
+  useEffect(() => {
+    movesRef.current = moves;
+  }, [moves]);
+
+  useEffect(() => {
+    difficultyRef.current = difficulty;
+  }, [difficulty]);
+
+  useEffect(() => {
+    elapsedTenthsRef.current = elapsedTenths;
+  }, [elapsedTenths]);
+
+  useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 680px)');
@@ -89,7 +132,54 @@ function App() {
     updateState(nextState);
   };
 
-  const swapPuzzleTiles = (sourceIndex: number, destinationIndex: number) => {
+  const gridSize = DIFFICULTIES[difficulty].size;
+
+  const formatTime = (tenths: number) => {
+    const seconds = Math.floor(tenths / 10);
+    return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}.${tenths % 10}`;
+  };
+
+  const startPuzzle = (nextDifficulty = difficulty) => {
+    const size = DIFFICULTIES[nextDifficulty].size;
+    setDifficulty(nextDifficulty);
+    const board = createShuffledBoard(size);
+    puzzleBoardRef.current = board;
+    setPuzzleBoard(board);
+    movesRef.current = 0;
+    setMoves(0);
+    setElapsedTenths(0);
+    setIsNewRecord(false);
+    puzzleDragRef.current = null;
+    setPuzzleDrag(null);
+    puzzleStartedAtRef.current = performance.now();
+    updateState('PUZZLE');
+  };
+
+  const completePuzzle = useCallback(() => {
+    const startedAt = puzzleStartedAtRef.current;
+    const finalTime =
+      startedAt === null ? elapsedTenthsRef.current : Math.round((performance.now() - startedAt) / 100);
+    const result = { time: finalTime, moves: movesRef.current };
+    const currentDifficulty = difficultyRef.current;
+    const currentRecord = recordsRef.current[currentDifficulty];
+    const hasNewRecord =
+      currentRecord === undefined ||
+      result.time < currentRecord.time ||
+      (result.time === currentRecord.time && result.moves < currentRecord.moves);
+
+    setElapsedTenths(finalTime);
+    setIsNewRecord(hasNewRecord);
+    puzzleStartedAtRef.current = null;
+    if (hasNewRecord) {
+      const nextRecords = { ...recordsRef.current, [currentDifficulty]: result };
+      recordsRef.current = nextRecords;
+      setRecords(nextRecords);
+      window.localStorage.setItem(RECORDS_KEY, JSON.stringify(nextRecords));
+    }
+    updateState('PUZZLE_COMPLETED');
+  }, []);
+
+  const swapPuzzleTiles = useCallback((sourceIndex: number, destinationIndex: number) => {
     const currentBoard = puzzleBoardRef.current;
     if (
       sourceIndex === destinationIndex ||
@@ -106,10 +196,27 @@ function App() {
     ];
     puzzleBoardRef.current = nextBoard;
     setPuzzleBoard(nextBoard);
+    movesRef.current += 1;
+    setMoves(movesRef.current);
     if (isSolved(nextBoard)) {
-      updateState('PUZZLE_COMPLETED');
+      completePuzzle();
     }
-  };
+  }, [completePuzzle]);
+
+  useEffect(() => {
+    if (appState !== 'PUZZLE' || puzzleStartedAtRef.current === null) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      const startedAt = puzzleStartedAtRef.current;
+      if (startedAt !== null) {
+        setElapsedTenths(Math.floor((performance.now() - startedAt) / 100));
+      }
+    }, 100);
+
+    return () => window.clearInterval(timer);
+  }, [appState]);
 
   useEffect(() => {
     if (appState !== 'COUNTDOWN') {
@@ -164,8 +271,7 @@ function App() {
       context.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
 
       setCapturedImage(canvas.toDataURL('image/png'));
-      setPuzzleBoard(createShuffledBoard(GRID_SIZE));
-      updateState('PUZZLE');
+      startPuzzle();
     }, 100);
 
     return () => window.clearTimeout(timeout);
@@ -341,19 +447,19 @@ function App() {
                       cursor.y <= puzzleBounds.y + puzzleBounds.height;
                     const tileColumn = isOverPuzzle
                       ? clamp(
-                          Math.floor(((cursor.x - puzzleBounds.x) / puzzleBounds.width) * GRID_SIZE),
+                          Math.floor(((cursor.x - puzzleBounds.x) / puzzleBounds.width) * gridSize),
                           0,
-                          GRID_SIZE - 1,
+                          gridSize - 1,
                         )
                       : -1;
                     const tileRow = isOverPuzzle
                       ? clamp(
-                          Math.floor(((cursor.y - puzzleBounds.y) / puzzleBounds.height) * GRID_SIZE),
+                          Math.floor(((cursor.y - puzzleBounds.y) / puzzleBounds.height) * gridSize),
                           0,
-                          GRID_SIZE - 1,
+                          gridSize - 1,
                         )
                       : -1;
-                    const tileIndex = isOverPuzzle ? tileRow * GRID_SIZE + tileColumn : -1;
+                    const tileIndex = isOverPuzzle ? tileRow * gridSize + tileColumn : -1;
 
                     if (now - lastOverlayUpdate > 50) {
                       setPuzzleCursor(cursor);
@@ -464,7 +570,7 @@ function App() {
       cancelled = true;
       stopResources();
     };
-  }, [facingMode, startupAttempt]);
+  }, [facingMode, gridSize, startupAttempt, swapPuzzleTiles]);
 
   const moveTile = (index: number) => {
     if (appState !== 'PUZZLE') {
@@ -472,15 +578,18 @@ function App() {
     }
 
     const emptyIndex = puzzleBoard.indexOf(0);
-    if (emptyIndex === -1 || !isAdjacent(index, emptyIndex)) {
+    if (emptyIndex === -1 || !isAdjacent(index, emptyIndex, gridSize)) {
       return;
     }
 
     const nextBoard = [...puzzleBoard];
     [nextBoard[index], nextBoard[emptyIndex]] = [nextBoard[emptyIndex], nextBoard[index]];
+    puzzleBoardRef.current = nextBoard;
     setPuzzleBoard(nextBoard);
+    movesRef.current += 1;
+    setMoves(movesRef.current);
     if (isSolved(nextBoard)) {
-      updateState('PUZZLE_COMPLETED');
+      completePuzzle();
     }
   };
 
@@ -499,13 +608,13 @@ function App() {
 
   const tileStyles = (tileValue: number) => {
     const tileIndex = tileValue - 1;
-    const row = Math.floor(tileIndex / GRID_SIZE);
-    const column = tileIndex % GRID_SIZE;
+    const row = Math.floor(tileIndex / gridSize);
+    const column = tileIndex % gridSize;
 
     return {
       backgroundImage: capturedImage ? `url("${capturedImage}")` : 'none',
-      backgroundSize: `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`,
-      backgroundPosition: `${(column / (GRID_SIZE - 1)) * 100}% ${(row / (GRID_SIZE - 1)) * 100}%`,
+      backgroundSize: `${gridSize * 100}% ${gridSize * 100}%`,
+      backgroundPosition: `${(column / (gridSize - 1)) * 100}% ${(row / (gridSize - 1)) * 100}%`,
     };
   };
 
@@ -525,7 +634,7 @@ function App() {
   const puzzleWidth = isCompactLayout ? 0.62 : 0.36;
   const puzzleHeight = puzzleWidth * (videoSize.width / videoSize.height);
   const puzzleBoardStyle: CSSProperties = {
-    gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+    gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
     left: `${((1 - puzzleWidth) / 2) * 100}%`,
     top: `${((1 - puzzleHeight) / 2) * 100}%`,
     width: `${puzzleWidth * 100}%`,
@@ -535,8 +644,8 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Camera puzzle</p>
-          <h1>Gesture capture</h1>
+          <p className="eyebrow">Camera game</p>
+          <h1>CAM PUZZLE</h1>
         </div>
         <div className="badge" role="status">{statusText[appState]}</div>
       </header>
@@ -574,6 +683,11 @@ function App() {
                 )}
                 {(appState === 'PUZZLE' || appState === 'PUZZLE_COMPLETED') && capturedImage && (
                   <div className="puzzle-layer">
+                    <div className="game-hud" aria-label="Game statistics">
+                      <div><span>Time</span><strong>{formatTime(elapsedTenths)}</strong></div>
+                      <div><span>Moves</span><strong>{moves}</strong></div>
+                      <div><span>Best</span><strong>{records[difficulty] ? formatTime(records[difficulty].time) : '--:--.-'}</strong></div>
+                    </div>
                     <div
                       className="puzzle-board"
                       style={puzzleBoardStyle}
@@ -594,7 +708,23 @@ function App() {
                       )}
                     </div>
                     <div className="puzzle-controls">
-                      <p>{appState === 'PUZZLE_COMPLETED' ? 'Puzzle solved!' : 'Pinch a tile, move your hand, and release it over another tile.'}</p>
+                      <p>{appState === 'PUZZLE_COMPLETED' ? 'Puzzle solved!' : 'Tap an adjacent tile or pinch, move, and release.'}</p>
+                      <div className="difficulty-picker" aria-label="Puzzle difficulty">
+                        {(Object.keys(DIFFICULTIES) as Difficulty[]).map((level) => (
+                          <button
+                            key={level}
+                            type="button"
+                            className={difficulty === level ? 'difficulty active' : 'difficulty'}
+                            onClick={() => startPuzzle(level)}
+                            aria-pressed={difficulty === level}
+                          >
+                            {DIFFICULTIES[level].label}
+                          </button>
+                        ))}
+                      </div>
+                      <button type="button" className="secondary-button" onClick={() => startPuzzle()}>
+                        Restart
+                      </button>
                       <button
                         type="button"
                         className="primary-button"
@@ -610,6 +740,20 @@ function App() {
                         New capture
                       </button>
                     </div>
+                    {appState === 'PUZZLE_COMPLETED' && (
+                      <div className="victory-modal" role="dialog" aria-modal="true" aria-labelledby="victory-title">
+                        <p className="victory-icon" aria-hidden="true">★</p>
+                        <p className="eyebrow">Puzzle complete</p>
+                        <h2 id="victory-title">{isNewRecord ? 'New personal best!' : 'Great work!'}</h2>
+                        <div className="victory-results">
+                          <span>{formatTime(elapsedTenths)}<small>Time</small></span>
+                          <span>{moves}<small>Moves</small></span>
+                        </div>
+                        <button type="button" className="primary-button" onClick={() => startPuzzle()}>
+                          Play again
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
